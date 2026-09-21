@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아카데미 온라인 테스트</title>
+<title>아신수학전문학원 온라인 테스트</title>
 <style>
 :root{--bg:#0f172a;--card:#fff;--ink:#1e293b;--muted:#64748b;--brand:#4f46e5;--brand2:#6366f1;--ok:#16a34a;--bad:#dc2626;--line:#e2e8f0;--soft:#f1f5f9;--warn:#f59e0b}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -107,6 +107,27 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
 .linkbox{display:flex;gap:8px;align-items:center;background:var(--soft);border-radius:8px;padding:8px 10px;margin-top:8px}
 .linkbox input{border:none;background:transparent;font-size:12px;color:var(--muted);padding:4px}
 .foot{text-align:center;color:#fff;opacity:.7;font-size:12px;margin-top:20px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.kpi{background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:14px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:26px;color:var(--brand);line-height:1.2}
+.kpi small{color:var(--muted);font-size:12px}
+.sectitle{font-size:15px;font-weight:800;margin:20px 0 8px;color:var(--ink)}
+.bc{margin:6px 0 14px}
+.bc .brow{display:flex;align-items:center;gap:10px;margin:6px 0}
+.bc .bl{width:64px;font-size:12px;flex-shrink:0;color:var(--muted)}
+.bc .bt{flex:1;background:var(--soft);border-radius:6px;height:24px;position:relative;overflow:hidden}
+.bc .bf{position:absolute;left:0;top:0;height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;color:#fff;font-weight:700;font-size:12px}
+.grouphd{font-weight:700;font-size:14px;margin:12px 0 2px}
+.dist{display:flex;align-items:flex-end;gap:10px;height:170px;margin:10px 0;padding:0 6px}
+.dist .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.dist .cbar{width:100%;background:linear-gradient(180deg,var(--brand2),var(--brand));border-radius:6px 6px 0 0;min-height:2px;transition:.3s}
+.dist .cn{font-size:12px;font-weight:800;margin-bottom:4px;color:var(--brand)}
+.dist .cl{font-size:11px;color:var(--muted);margin-top:6px;text-align:center;line-height:1.3}
+.reptop{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--brand);padding-bottom:12px;margin-bottom:6px}
+.reptop h2{margin-bottom:2px}
+.reptop .rd{font-size:12px;color:var(--muted)}
+@media(max-width:600px){.kpis{grid-template-columns:repeat(2,1fr)}}
+@media print{body{background:#fff!important;padding:0}.brandbar,.foot,.no-print{display:none!important}.card{box-shadow:none;border-radius:0;padding:10px}.wrap{max-width:none}.kpi{-webkit-print-color-adjust:exact;print-color-adjust:exact}.bc .bf,.dist .cbar{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .empty{text-align:center;color:var(--muted);padding:40px 0}
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
 th,td{padding:8px;border-bottom:1px solid var(--line)}
@@ -118,7 +139,7 @@ thead tr{background:var(--soft)}
 <div class="wrap">
   <div class="brandbar">
     <div class="logo">📚</div>
-    <div><h1>아카데미 온라인 테스트</h1><p>학원생 전용 평가 시스템</p></div>
+    <div><h1>아신수학전문학원 온라인 테스트</h1><p>학원생 전용 평가 시스템</p></div>
   </div>
   <div id="app"></div>
   <div id="cropRoot"></div>
@@ -157,10 +178,37 @@ function loadTests(){try{const d=JSON.parse(localStorage.getItem(LS_TESTS));retu
 function saveTests(t){localStorage.setItem(LS_TESTS,JSON.stringify(t));}
 function loadResults(){try{return JSON.parse(localStorage.getItem(LS_RESULTS))||[];}catch(e){return[];}}
 function saveResults(r){localStorage.setItem(LS_RESULTS,JSON.stringify(r));}
+const LS_STUDENTS='acad_students_v2';
+function getStudents(){try{return JSON.parse(localStorage.getItem(LS_STUDENTS))||{};}catch(e){return{};}}
+function saveStudents(m){localStorage.setItem(LS_STUDENTS,JSON.stringify(m));}
+function findStudent(sid){return getStudents()[sid]||null;}
+function hasSubmitted(tid){return loadResults().some(r=>r.testId===tid&&student&&r.sid===student.id&&r.student===student.name);}
+const LS_TRASH='acad_trash_v1';
+function getTrash(){try{return JSON.parse(localStorage.getItem(LS_TRASH))||[];}catch(e){return[];}}
+function saveTrash(t){localStorage.setItem(LS_TRASH,JSON.stringify(t));}
+const LS_STU_TRASH='acad_stu_trash_v1';
+function getStuTrash(){try{return JSON.parse(localStorage.getItem(LS_STU_TRASH))||[];}catch(e){return[];}}
+function saveStuTrash(t){localStorage.setItem(LS_STU_TRASH,JSON.stringify(t));}
 
 let student=null, tests=loadTests();
-let curTest=null, curIdx=0, answers=[], timerID=null, timeLeft=0;
-let adminTab='list', editData=null, entryTestId=null;
+let curTest=null, curIdx=0, answers=[], timerID=null, timeLeft=0, qRemain=[], qLocked=[], reviewMode=false;
+let adminTab='list', editData=null, entryTestId=null, selectedStudentIdxs=[];
+const LS_ADMINPW='acad_adminpw_v2';
+let adminAuthed=false;
+let loginTime=0;
+const LS_USAGE='acad_usage_v2';
+function usageKey(s){return (s?s.sid:'')+'|'+(s?s.name:'');}
+function getUsageStore(){try{return JSON.parse(localStorage.getItem(LS_USAGE))||{};}catch(e){return{};}}
+function usageEntry(key){const raw=getUsageStore()[key];if(raw==null)return{sec:0,log:[],first:'',last:''};if(typeof raw==='number')return{sec:raw,log:[],first:'',last:''};return{sec:raw.sec||0,log:Array.isArray(raw.log)?raw.log:[],first:raw.first||'',last:raw.last||''};}
+function storedUsage(s){return usageEntry(usageKey(s)).sec;}
+function commitUsage(){if(!student||!loginTime)return;const sec=sessionElapsed();if(sec<=0){loginTime=Date.now();return;}const m=getUsageStore();const e=usageEntry(usageKey(student));const now=new Date().toLocaleString('ko-KR');e.sec+=sec;e.log.push({d:now,sec});if(e.log.length>300)e.log=e.log.slice(-300);if(!e.first)e.first=now;e.last=now;m[usageKey(student)]=e;localStorage.setItem(LS_USAGE,JSON.stringify(m));loginTime=Date.now();}
+function cumulativeUsage(s){return storedUsage(s)+(s&&student&&usageKey(s)===usageKey(student)?sessionElapsed():0);}
+function adminStudents(){const all=loadResults();const map={};all.forEach(r=>{const k=(r.sid||'-')+'|'+(r.student||'');(map[k]=map[k]||{key:k,name:r.student||'',sid:r.sid||'-',rs:[]}).rs.push(r);});const store=getUsageStore();Object.keys(store).forEach(k=>{if(!map[k]){const p=k.split('|');map[k]={key:k,name:p[1]||'',sid:p[0]||'-',rs:[]};}});return Object.keys(map).sort().map(k=>map[k]);}
+function sessionElapsed(){return loginTime?Math.floor((Date.now()-loginTime)/1000):0;}
+function fmtDur(sec){const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+'시간 ':'')+(h||m?m+'분 ':'')+s+'초';}
+function hashPw(s){let h=5381;for(let i=0;i<s.length;i++){h=(((h<<5)+h)+s.charCodeAt(i))&0xffffffff;}return String(h>>>0);}
+function getPw(){return localStorage.getItem(LS_ADMINPW);}
+function setPw(p){localStorage.setItem(LS_ADMINPW,hashPw(p));}
 
 function getParam(k){
   const h=(location.hash||'').replace(/^#/,'');
@@ -179,36 +227,53 @@ function viewLogin(){
   const t=entryTestId?loadTests().find(x=>x.id===entryTestId):null;
   const banner=t?`<div class="banner">🏫 학원 카페 링크로 입장했어요<br><b>“${esc(t.title)}”</b> 시험 (${t.questions.length}문항 · ${t.minutes}분)</div>`:'';
   el.innerHTML=`<div class="card">
-    <h2>👋 학생 입장</h2>
-    <p class="sub">이름과 학생 번호를 입력하면 시험을 시작합니다.</p>
+    <h2>👋 수강생 로그인</h2>
+    <p class="sub">관리자에게 <b>등록된 이름과 학생 번호</b>로 로그인하세요. 첫 로그인 시 본인이 개인 암호를 직접 설정합니다.</p>
     ${banner}
     <label>이름</label><input id="nm" placeholder="예: 김학생" autocomplete="off">
     <label>학생 번호</label><input id="sid" placeholder="예: 2026-001" autocomplete="off">
+    <label>개인 암호 <span style="color:var(--muted);font-size:12px">(첫 로그인 시 새로 설정 · 4자 이상)</span></label>
+    <input id="pw" type="password" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
     <div class="row" style="margin-top:22px">
-      <button class="btn" onclick="doLogin()">${t?'시험 시작 →':'입장 →'}</button>
+      <button class="btn" onclick="doLogin()">${t?'시험 시작 →':'로그인 →'}</button>
       ${entryTestId?'':'<button class="btn ghost" onclick="viewAdmin()">강사 모드</button>'}
     </div>
   </div>`;
 }
 window.doLogin=function(){
-  const n=document.getElementById('nm').value.trim(),i=document.getElementById('sid').value.trim();
-  if(!n){alert('이름을 입력해 주세요.');return;}
-  student={name:n,id:i||'-'};
+  const n=document.getElementById('nm').value.trim(),i=document.getElementById('sid').value.trim(),p=document.getElementById('pw').value;
+  if(!n||!i){alert('이름과 학생 번호를 모두 입력해 주세요.');return;}
+  const rec=findStudent(i);
+  if(!rec||rec.name!==n){alert('등록되지 않은 수강생입니다.\n관리자에게 등록을 요청하세요. (이름과 학생 번호가 등록된 값과 정확히 일치해야 합니다.)');return;}
+  if(!rec.pw){
+    if(!p||p.length<4){alert('첫 로그인입니다. 앞으로 사용할 개인 암호를 4자 이상으로 입력하세요.');return;}
+    const m=getStudents();m[i].pw=hashPw(p);saveStudents(m);
+    alert('개인 암호가 설정되었습니다. 앞으로는 이 암호로 로그인하세요.');
+  }else{
+    if(hashPw(p)!==rec.pw){alert('개인 암호가 올바르지 않습니다.');return;}
+  }
+  student={name:n,id:i,sid:i};
+  loginTime=Date.now();
   if(entryTestId){const t=loadTests().find(x=>x.id===entryTestId);if(t){startTest(entryTestId);return;}}
   viewHome();
 };
-window.logout=function(){student=null;viewLogin();};
+window.logout=function(){
+  if(loginTime){const total=sessionElapsed();commitUsage();alert('본 세션 이용시간: '+fmtDur(total)+'\n누적 이용시간: '+fmtDur(storedUsage(student)));}
+  loginTime=0;student=null;viewLogin();
+};
 
 /* ============ HOME ============ */
 function viewHome(){
   stopTimer(); tests=loadTests();
-  const list=tests.map(t=>`<div class="testitem" onclick="startTest('${t.id}')">
-    <div><h3>${esc(t.title)}</h3><div class="meta">${t.questions.length}문항 · 제한시간 ${t.minutes}분</div></div>
-    <span class="pill blue">${esc(t.subject)}</span></div>`).join('');
+  const done=loadResults();
+  const isDone=tid=>done.some(r=>r.testId===tid&&r.sid===student.id&&r.student===student.name);
+  const list=tests.map(t=>{const d=isDone(t.id);return `<div class="testitem" onclick="startTest('${t.id}')">
+    <div><h3>${esc(t.title)}</h3><div class="meta">${t.questions.length}문항 · 제한시간 ${t.minutes}분${d?' · <span style="color:var(--ok);font-weight:700">✔ 응시 완료(문제 확인만 가능)</span>':''}</div></div>
+    <span class="pill blue">${esc(t.subject)}</span></div>`;}).join('');
   el.innerHTML=`<div class="card">
     <div class="row between">
       <div><h2>안녕하세요, ${esc(student.name)}님 👋</h2>
-      <p class="sub" style="margin:4px 0 0">학번 ${esc(student.id)} · 응시할 시험을 선택하세요</p></div>
+      <p class="sub" style="margin:4px 0 0">학번 ${esc(student.id)} · ⏱ 이용시간 <b id="sessClock">${fmtDur(sessionElapsed())}</b></p></div>
       <button class="btn ghost sm" onclick="logout()">로그아웃</button>
     </div>
     <div class="testlist">${list||'<div class="empty">등록된 시험이 없습니다.</div>'}</div>
@@ -221,33 +286,100 @@ window.startTest=function(tid){
   tests=loadTests();
   curTest=tests.find(t=>t.id===tid);
   if(!curTest){alert('시험을 찾을 수 없습니다.');return;}
+  const prev=loadResults();
+  const doneIdx=prev.findIndex(r=>r.testId===tid&&r.sid===student.id&&r.student===student.name);
+  if(doneIdx>=0){
+    alert('이미 응시한 시험입니다. 답안은 한 번만 제출할 수 있어요.\n문제와 해설을 다시 확인합니다.');
+    renderResult(prev[doneIdx],doneIdx);
+    return;
+  }
   curIdx=0; answers=curTest.questions.map(q=>q.type==='short'?'':-1);
+  qRemain=curTest.questions.map(q=>{const l=+(q.limit||0);return l>0?l:0;});
+  qLocked=curTest.questions.map(()=>false);
   timeLeft=curTest.minutes*60;
+  reviewMode=false;
   renderQuestion();
+  startGlobalTimer();
+};
+function startGlobalTimer(){
+  stopTimer();
   timerID=setInterval(()=>{
+    if(reviewMode)return;
     timeLeft--;
     const te=document.getElementById('tm');
     if(te){te.textContent=fmtTime(timeLeft);te.className='timer'+(timeLeft<=30?' warn':'');}
+    const q=curTest.questions[curIdx];
+    if((+q.limit||0)>0 && !qLocked[curIdx]){
+      qRemain[curIdx]--;
+      const qe=document.getElementById('qtm');
+      if(qe){qe.textContent='⏳ '+fmtTime(Math.max(0,qRemain[curIdx]));qe.className='timer'+(qRemain[curIdx]<=10?' warn':'');}
+      if(qRemain[curIdx]<=0){qLocked[curIdx]=true;onQTimeout();}
+    }
     if(timeLeft<=0){stopTimer();submitTest();}
   },1000);
+}
+function onQTimeout(){
+  const q=curTest.questions[curIdx];
+  if(!unanswered(q,answers[curIdx])){renderQuestion();return;}
+  reviewMode=true;
+  renderTimeoutReview();
+}
+function renderTimeoutReview(){
+  const q=curTest.questions[curIdx], total=curTest.questions.length;
+  const isLast=curIdx===total-1;
+  const content=q.img?`<img class="qimg" src="${q.img}" alt="문제">`:`<div class="qtext">${esc(q.q||'')}</div>`;
+  let ansLine;
+  if(q.type==='short')ansLine=`<div class="short-ans">정답: <b>${esc(q.ansText||'')}</b></div>`;
+  else if(q.opts){ansLine=`<div class="opts">${q.opts.map((o,j)=>`<div class="opt ${j===q.ans?'correct':''}"><span class="mk">${nlabel(j)}</span><span>${esc(o)}</span></div>`).join('')}</div>`;}
+  else ansLine=`<div style="margin-top:8px;font-size:14px;color:var(--muted)">정답: <b style="color:var(--ok)">${nlabel(q.ans)}</b></div>`;
+  const expImg=q.explainImg?`<img class="expimg" src="${q.explainImg}" alt="해설">`:'';
+  const expTxt=q.explain?`<div class="explain">💡 ${esc(q.explain)}</div>`:'';
+  const hasExp=q.explain||q.explainImg;
+  const lec=q.lecture?`<a class="lecture-link" href="${esc(q.lecture)}" target="_blank" rel="noopener noreferrer">🎥 관련 강의 보기 (새 창)</a>`:'';
+  const noHelp=(!hasExp&&!q.lecture)?`<div class="explain">이 문항에는 등록된 해설/강의가 없습니다. 정답을 확인한 뒤 진행하세요.</div>`:'';
+  el.innerHTML=`<div class="card">
+    <div class="banner" style="background:#fff4e5;border-color:#ffd8a8;color:#a15c00">⏰ 제한시간 안에 답을 입력하지 못했어요. 시험 시간은 잠시 멈추었습니다. 아래 해설${q.lecture?' 또는 강의':''}로 충분히 학습한 뒤 진행하세요.</div>
+    <div class="qnum">문항 ${curIdx+1} / ${total}</div>
+    ${content}
+    ${ansLine}
+    ${expTxt}${expImg}${lec}${noHelp}
+    <div class="banner" style="margin-top:18px">🤔 이 문항의 풀이·해설을 이해했나요?</div>
+    <div class="row">
+      <button class="btn" onclick="ackUnderstood()">✅ 이해했어요 · ${isLast?'시험 종료':'다음 문제로'}</button>
+      <button class="btn ghost" onclick="notUnderstood()">아직 잘 모르겠어요</button>
+    </div>
+  </div>`;
+}
+window.notUnderstood=function(){alert('해설과 강의를 다시 천천히 확인해 보세요. 충분히 이해했으면 “이해했어요”를 누르세요.');renderTimeoutReview();};
+window.ackUnderstood=function(){
+  const total=curTest.questions.length;
+  reviewMode=false;
+  if(curIdx>=total-1){stopTimer();submitTest();return;}
+  curIdx++;
+  renderQuestion();
 };
 function renderQuestion(){
   const q=curTest.questions[curIdx], total=curTest.questions.length, L='ABCDE';
   const pct=((curIdx+1)/total*100).toFixed(0);
+  const locked=qLocked[curIdx];
   const content=q.img?`<img class="qimg" src="${q.img}" alt="문제 이미지">`:`<div class="qtext">${esc(q.q)}</div>`;
   let opts;
   if(q.type==='short'){
-    opts=`<div style="font-size:13px;color:var(--muted);margin-bottom:6px">정답을 입력하세요 (단답형)</div><input class="short-input" value="${esc(answers[curIdx]||'')}" oninput="setShort(this.value)" placeholder="예: 42" autocomplete="off">`;
+    opts=`<div style="font-size:13px;color:var(--muted);margin-bottom:6px">정답을 입력하세요 (단답형)</div><input class="short-input" ${locked?'disabled':''} value="${esc(answers[curIdx]||'')}" oninput="setShort(this.value)" placeholder="예: 42" autocomplete="off">`;
   }else if(q.opts){
-    opts=`<div class="opts">${q.opts.map((o,i)=>`<div class="opt${answers[curIdx]===i?' sel':''}" onclick="pick(${i})"><span class="mk">${nlabel(i)}</span><span>${esc(o)}</span></div>`).join('')}</div>`;
+    opts=`<div class="opts">${q.opts.map((o,i)=>`<div class="opt${answers[curIdx]===i?' sel':''}" ${locked?'style="opacity:.55;cursor:not-allowed"':`onclick="pick(${i})"`}><span class="mk">${nlabel(i)}</span><span>${esc(o)}</span></div>`).join('')}</div>`;
   }else{
     const n=q.choices||5;
-    opts=`<div style="font-size:13px;color:var(--muted);margin-bottom:6px">정답을 선택하세요</div><div class="ansgrid">${Array.from({length:n},(_,i)=>`<button class="ansbtn${answers[curIdx]===i?' sel':''}" onclick="pick(${i})">${nlabel(i)}</button>`).join('')}</div>`;
+    opts=`<div style="font-size:13px;color:var(--muted);margin-bottom:6px">정답을 선택하세요</div><div class="ansgrid">${Array.from({length:n},(_,i)=>`<button class="ansbtn${answers[curIdx]===i?' sel':''}" ${locked?'disabled style="opacity:.55;cursor:not-allowed"':`onclick="pick(${i})"`}>${nlabel(i)}</button>`).join('')}</div>`;
   }
+  const hasLimit=(+q.limit||0)>0;
+  const qtimer=hasLimit?`<span id="qtm" class="timer${qRemain[curIdx]<=10?' warn':''}" title="문항 제한시간" style="margin-right:8px">⏳ ${fmtTime(Math.max(0,qRemain[curIdx]))}</span>`:'';
+  const lockNote=locked?`<div class="banner" style="background:#fdecec;color:#c0392b;border-color:#f5b7b1">⛔ 이 문항의 제한시간이 지나 답안 입력이 마감되었습니다.</div>`:'';
   el.innerHTML=`<div class="card">
-    <div class="qtop"><span class="qnum">문항 ${curIdx+1} / ${total}</span><span id="tm" class="timer">${fmtTime(timeLeft)}</span></div>
+    <div class="qtop"><span class="qnum">문항 ${curIdx+1} / ${total}</span><span>${qtimer}<span id="tm" class="timer">${fmtTime(timeLeft)}</span></span></div>
     <div class="progress"><span style="width:${pct}%"></span></div>
     ${content}
+    ${lockNote}
     ${opts}
     <div class="navbtns">
       <button class="btn ghost" onclick="prevQ()" ${curIdx===0?'disabled style="opacity:.4"':''}>← 이전</button>
@@ -255,11 +387,11 @@ function renderQuestion(){
     </div>
   </div>`;
 }
-window.pick=function(i){answers[curIdx]=i;renderQuestion();};
+window.pick=function(i){if(qLocked[curIdx])return;answers[curIdx]=i;renderQuestion();};
 window.prevQ=function(){if(curIdx>0){curIdx--;renderQuestion();}};
 window.nextQ=function(){if(curIdx<curTest.questions.length-1){curIdx++;renderQuestion();}};
 function fmtTime(s){s=Math.max(0,s);const m=Math.floor(s/60),x=s%60;return `${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`;}
-window.setShort=function(v){answers[curIdx]=v;};
+window.setShort=function(v){if(qLocked[curIdx])return;answers[curIdx]=v;};
 function normShort(s){return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,'');}
 function acceptsOf(q){return String(q.ansText||'').split(/[,，|]/).map(normShort).filter(Boolean);}
 function isCorrect(q,a){if(q.type==='short'){const v=normShort(a);return v!==''&&acceptsOf(q).includes(v);}return a===q.ans;}
@@ -393,17 +525,67 @@ window.viewMyResults=function(){
   }).join('');
   el.innerHTML=`<div class="card">
     <h2>📊 내 성적 · 평균</h2>
-    <p class="sub">${esc(student.name)} (${esc(student.id)})</p>
+    <p class="sub">${esc(student.name)} (${esc(student.id)}) · ⏱ 세션 <b id="sessClock">${fmtDur(sessionElapsed())}</b> · 누적 <b id="cumClock">${fmtDur(cumulativeUsage(student))}</b></p>
     ${head}
     ${mine.length?`<table><thead><tr><th style="text-align:left">시험</th><th>내점수</th><th>평균</th><th>편차</th><th>정답률</th><th>해설</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">아직 응시 기록이 없어요.</div>'}
     <div class="row" style="margin-top:18px">
+      <button class="btn" onclick="showInfographic('me')">📊 성적 인포그래픽(PDF)</button>
       ${entryTestId?'<button class="btn ghost" onclick="logout()">마침하기</button>':'<button class="btn ghost" onclick="viewHome()">🏠 홈으로</button>'}
     </div>
   </div>`;
 };
 
 /* ============ ADMIN ============ */
-window.viewAdmin=function(){stopTimer();adminTab='list';renderAdmin();};
+window.viewAdmin=function(){
+  stopTimer();
+  if(!getPw()){viewAdminSetup();return;}
+  if(!adminAuthed){viewAdminLogin();return;}
+  adminTab='list';renderAdmin();
+};
+function viewAdminSetup(){
+  el.innerHTML=`<div class="card">
+    <h2>🔒 관리자 암호 설정</h2>
+    <p class="sub">강사 모드는 관리자만 사용할 수 있어요. 처음 사용 시 암호를 설정하세요.</p>
+    <label>새 암호 (4자 이상)</label><input id="pw1" type="password" autocomplete="new-password">
+    <label>암호 확인</label><input id="pw2" type="password" autocomplete="new-password">
+    <div class="row" style="margin-top:20px">
+      <button class="btn" onclick="savePwSetup()">설정 완료</button>
+      <button class="btn ghost" onclick="viewLogin()">취소</button>
+    </div>
+  </div>`;
+}
+window.savePwSetup=function(){
+  const a=document.getElementById('pw1').value,b=document.getElementById('pw2').value;
+  if(!a||a.length<4){alert('암호는 4자 이상으로 입력하세요.');return;}
+  if(a!==b){alert('암호가 일치하지 않습니다.');return;}
+  setPw(a);adminAuthed=true;adminTab='list';renderAdmin();
+};
+function viewAdminLogin(){
+  el.innerHTML=`<div class="card">
+    <h2>🔒 강사 모드 로그인</h2>
+    <p class="sub">관리자 암호를 입력하세요.</p>
+    <label>암호</label><input id="pwin" type="password" autocomplete="off" onkeydown="if(event.key==='Enter')adminAuth()">
+    <div class="row" style="margin-top:20px">
+      <button class="btn" onclick="adminAuth()">입장</button>
+      <button class="btn ghost" onclick="viewLogin()">← 학생 모드</button>
+    </div>
+  </div>`;
+  setTimeout(()=>{const p=document.getElementById('pwin');if(p)p.focus();},50);
+}
+window.adminAuth=function(){
+  const v=document.getElementById('pwin').value;
+  if(hashPw(v)===getPw()){adminAuthed=true;adminTab='list';renderAdmin();}
+  else alert('암호가 올바르지 않습니다.');
+};
+window.changePw=function(){
+  const cur=prompt('현재 암호를 입력하세요:');
+  if(cur==null)return;
+  if(hashPw(cur)!==getPw()){alert('현재 암호가 올바르지 않습니다.');return;}
+  const np=prompt('새 암호를 입력하세요 (4자 이상):');
+  if(np==null)return;
+  if(np.length<4){alert('암호는 4자 이상이어야 합니다.');return;}
+  setPw(np);alert('암호가 변경되었습니다.');
+};
 function renderAdmin(){
   if(adminTab==='edit'){renderEdit();return;}
   tests=loadTests();
@@ -416,35 +598,184 @@ function renderAdmin(){
       </div>
       <div class="row" style="flex-direction:column;gap:6px">
         <button class="btn ghost sm" onclick="editTest('${t.id}')">✏️ 편집</button>
+        <button class="btn ghost sm" onclick="printTest('${t.id}')">🖨️ 문제 출력</button>
         <button class="btn ghost sm" onclick="delTest('${t.id}')">🗑 삭제</button>
       </div></div>`).join('');
     body=`<div class="banner">💡 각 시험의 링크를 복사해 학원 카페에 올리세요. 학생이 링크를 누르면 해당 시험으로 바로 입장합니다.</div>
       <div class="testlist">${list||'<div class="empty">등록된 시험이 없습니다.</div>'}</div>
-      <button class="btn" style="margin-top:14px" onclick="newTest()">➕ 새 시험 만들기</button>`;
+      <div class="row" style="margin-top:14px"><button class="btn" onclick="newTest()">➕ 새 시험 만들기</button><button class="btn ghost" onclick="changePw()">🔑 관리자 암호 변경</button></div>`;
+  } else if(adminTab==='students'){
+    const studs=getStudents();
+    const keys=Object.keys(studs).sort();
+    const srows=keys.map((sid,i)=>{const s=studs[sid];return `<tr>
+      <td>${esc(s.name)}</td><td>${esc(sid)}</td>
+      <td style="text-align:center">${s.pw?'<span style="color:var(--ok)">설정됨</span>':'<span style="color:var(--warn)">미설정</span>'}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn ghost sm" onclick="resetStuPw(${i})">암호 초기화</button>
+        <button class="btn ghost sm" onclick="setStuPw(${i})">암호 지정</button>
+        <button class="btn ghost sm" onclick="delStudent(${i})">삭제</button>
+      </td></tr>`;}).join('');
+    body=`<div class="banner">💡 여기에 등록된 수강생만 로그인할 수 있습니다. 학생은 첫 로그인 시 본인이 개인 암호를 설정하며(대리시험 방지), 관리자는 암호를 초기화하거나 직접 지정할 수 있습니다.</div>
+      <div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:140px"><label>이름</label><input id="newnm" placeholder="예: 김학생" autocomplete="off"></div>
+        <div style="flex:1;min-width:140px"><label>학생 번호(고유)</label><input id="newsid" placeholder="예: 2026-001" autocomplete="off"></div>
+        <button class="btn" onclick="addStudent()">➕ 등록</button>
+      </div>
+      <h3 style="margin:18px 0 6px">등록된 수강생 (${keys.length}명)</h3>
+      <table><thead><tr><th style="text-align:left">이름</th><th style="text-align:left">학생 번호</th><th>암호</th><th>관리</th></tr></thead><tbody>${srows||'<tr><td colspan="4" style="text-align:center;color:var(--muted)">등록된 수강생이 없습니다.</td></tr>'}</tbody></table>`;
   } else {
     const results=loadResults();
-    if(!results.length)body='<div class="empty">응시 기록이 없습니다.</div>';
-    else{
-      const byTest={};results.forEach(r=>{(byTest[r.testId]=byTest[r.testId]||[]).push(r);});
-      const summary=Object.keys(byTest).map(tid=>{const st=statsFor(tid);const ti=byTest[tid][0].testTitle;
-        return `<tr><td>${esc(ti)}</td><td style="text-align:center">${st.count}명</td><td style="text-align:center"><b>${st.avg}점</b></td><td style="text-align:center">${st.max}점</td><td style="text-align:center">${st.min}점</td></tr>`;}).join('');
-      const rows=results.slice().reverse().map(r=>`<tr><td>${esc(r.student)} (${esc(r.sid)})</td><td>${esc(r.testTitle)}</td><td style="text-align:center"><b style="color:${r.score>=70?'var(--ok)':'var(--bad)'}">${r.score}점</b></td><td style="text-align:center">${r.correct}/${r.total}</td><td>${esc(r.date)}</td></tr>`).join('');
-      body=`<h3 style="margin:4px 0 6px">시험별 평균</h3>
-        <table><thead><tr><th style="text-align:left">시험</th><th>응시</th><th>평균</th><th>최고</th><th>최저</th></tr></thead><tbody>${summary}</tbody></table>
-        <h3 style="margin:18px 0 6px">전체 응시 기록</h3>
-        <table><thead><tr><th style="text-align:left">학생</th><th style="text-align:left">시험</th><th>점수</th><th>정답률</th><th>응시일</th></tr></thead><tbody>${rows}</tbody></table>`;
-    }
+    const trash=getTrash();
+    const byTest={};results.forEach(r=>{(byTest[r.testId]=byTest[r.testId]||[]).push(r);});
+    const summary=Object.keys(byTest).map(tid=>{const st=statsFor(tid);const ti=byTest[tid][0].testTitle;
+      return `<tr><td>${esc(ti)}</td><td style="text-align:center">${st.count}명</td><td style="text-align:center"><b>${st.avg}점</b></td><td style="text-align:center">${st.max}점</td><td style="text-align:center">${st.min}점</td></tr>`;}).join('');
+    const rows=results.slice().reverse().map((r,ri)=>{const oi=results.length-1-ri;return `<tr><td>${esc(r.student)} (${esc(r.sid)})</td><td>${esc(r.testTitle)}</td><td style="text-align:center"><b style="color:${r.score>=70?'var(--ok)':'var(--bad)'}">${r.score}점</b></td><td style="text-align:center">${r.correct}/${r.total}</td><td>${esc(r.date)}</td><td style="text-align:center"><button class="btn ghost sm" onclick="delResult(${oi})">🗑 삭제</button></td></tr>`;}).join('');
+    const studs=adminStudents();
+    const stuRows=studs.map((s,i)=>{const e=usageEntry(s.key);const live=(student&&usageKey(student)===s.key)?sessionElapsed():0;const sc=s.rs.map(r=>r.score);const av=sc.length?Math.round(sc.reduce((a,b)=>a+b,0)/sc.length):0;return `<tr><td style="text-align:center"><input type="checkbox" class="stusel" value="${i}"></td><td>${esc(s.name)} (${esc(s.sid)})</td><td style="text-align:center">${s.rs.length}</td><td style="text-align:center"><b>${av}점</b></td><td style="text-align:center">${fmtDur(e.sec+live)}</td><td style="text-align:center;white-space:nowrap"><button class="btn ghost sm" onclick="showInfographic('stu',${i})">📊 리포트</button><button class="btn ghost sm" onclick="delStudentData(${i})">🗑 삭제</button></td></tr>`;}).join('');
+    const stuTrash=getStuTrash();
+    const stuTrashRows=stuTrash.slice().reverse().map((s,ti)=>{const oi=stuTrash.length-1-ti;const usec=s.usage&&typeof s.usage==='object'?(s.usage.sec||0):(typeof s.usage==='number'?s.usage:0);return `<tr><td>${esc(s.name)} (${esc(s.sid)})</td><td style="text-align:center">${(s.results||[]).length}건</td><td style="text-align:center">${fmtDur(usec)}</td><td style="font-size:12px">${esc(s._del||'')}</td><td style="text-align:center;white-space:nowrap"><button class="btn ghost sm" onclick="restoreStudentData(${oi})">↩ 복구</button><button class="btn ghost sm" onclick="purgeStudentData(${oi})">영구삭제</button></td></tr>`;}).join('');
+    const trashRows=trash.slice().reverse().map((r,ti)=>{const oi=trash.length-1-ti;return `<tr><td>${esc(r.student)} (${esc(r.sid)})</td><td>${esc(r.testTitle)}</td><td style="text-align:center">${r.score}점</td><td style="font-size:12px">${esc(r._del||'')}</td><td style="text-align:center;white-space:nowrap"><button class="btn ghost sm" onclick="restoreResult(${oi})">↩ 복구</button><button class="btn ghost sm" onclick="purgeResult(${oi})">영구삭제</button></td></tr>`;}).join('');
+    const emptyStu='<tr><td colspan="6" style="text-align:center;color:var(--muted)">기록 없음</td></tr>';
+    body=`<div class="row" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn" onclick="showInfographic('all')">📊 전체·개인별 인포그래픽(PDF)</button>
+        <button class="btn ghost" onclick="showSelectedReport()">🧾 선택 학생 리포트 생성(PDF)</button>
+      </div>
+        <h3 style="margin:4px 0 6px">개인별 성적 · 이용시간 <span style="font-size:12px;color:var(--muted)">(체크한 학생만 리포트 생성)</span></h3>
+        <table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" onclick="toggleAllStu(this)"></th><th style="text-align:left">학생</th><th>응시</th><th>평균</th><th>누적시간</th><th>개인 리포트</th></tr></thead><tbody>${stuRows||emptyStu}</tbody></table>
+        <h3 style="margin:18px 0 6px">시험별 평균</h3>
+        <table><thead><tr><th style="text-align:left">시험</th><th>응시</th><th>평균</th><th>최고</th><th>최저</th></tr></thead><tbody>${summary||'<tr><td colspan="5" style="text-align:center;color:var(--muted)">기록 없음</td></tr>'}</tbody></table>
+        <div class="row between" style="margin:18px 0 6px;align-items:center"><h3 style="margin:0">전체 응시 기록 (${results.length}건)</h3>${results.length?'<button class="btn ghost sm" onclick="clearAllResults()">🗑 전체 삭제</button>':''}</div>
+        <table><thead><tr><th style="text-align:left">학생</th><th style="text-align:left">시험</th><th>점수</th><th>정답률</th><th>응시일</th><th>관리</th></tr></thead><tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:var(--muted)">응시 기록이 없습니다.</td></tr>'}</tbody></table>
+        <div class="row between" style="margin:18px 0 6px;align-items:center"><h3 style="margin:0">🗑 휴지통 (${trash.length}건)</h3>${trash.length?'<span class="row" style="gap:6px"><button class="btn ghost sm" onclick="restoreAll()">↩ 전체 복구</button><button class="btn ghost sm" onclick="emptyTrash()">비우기</button></span>':''}</div>
+        <table><thead><tr><th style="text-align:left">학생</th><th style="text-align:left">시험</th><th>점수</th><th>삭제일</th><th>관리</th></tr></thead><tbody>${trashRows||'<tr><td colspan="5" style="text-align:center;color:var(--muted)">휴지통이 비어 있습니다.</td></tr>'}</tbody></table>
+        <div class="row between" style="margin:18px 0 6px;align-items:center"><h3 style="margin:0">👥 삭제된 학생 기록 (${stuTrash.length}명)</h3>${stuTrash.length?'<span class="row" style="gap:6px"><button class="btn ghost sm" onclick="restoreAllStudentData()">↩ 전체 복구</button><button class="btn ghost sm" onclick="emptyStuTrash()">비우기</button></span>':''}</div>
+        <table><thead><tr><th style="text-align:left">학생</th><th>응시</th><th>누적시간</th><th>삭제일</th><th>관리</th></tr></thead><tbody>${stuTrashRows||'<tr><td colspan="5" style="text-align:center;color:var(--muted)">삭제된 학생 기록이 없습니다.</td></tr>'}</tbody></table>`;
   }
   el.innerHTML=`<div class="card">
     <div class="row between"><h2>👨‍🏫 강사 관리</h2><button class="btn ghost sm" onclick="backToStudent()">← 학생 모드</button></div>
     <div class="tabs">
       <span class="tab ${adminTab==='list'?'active':''}" onclick="adminTab='list';renderAdmin()">📋 시험/링크 관리</span>
+      <span class="tab ${adminTab==='students'?'active':''}" onclick="adminTab='students';renderAdmin()">👥 수강생 관리</span>
       <span class="tab ${adminTab==='results'?'active':''}" onclick="adminTab='results';renderAdmin()">📊 성적 · 평균</span>
     </div>${body}
   </div>`;
 }
 window.renderAdmin=renderAdmin;
-window.backToStudent=function(){entryTestId=null;viewLogin();};
+window.backToStudent=function(){entryTestId=null;adminAuthed=false;viewLogin();};
+window.addStudent=function(){const n=document.getElementById('newnm').value.trim(),i=document.getElementById('newsid').value.trim();if(!n||!i){alert('이름과 학생 번호를 모두 입력하세요.');return;}const m=getStudents();if(m[i]){alert('이미 등록된 학생 번호입니다.');return;}m[i]={sid:i,name:n,pw:''};saveStudents(m);renderAdmin();};
+window.delStudent=function(idx){const keys=Object.keys(getStudents()).sort();const sid=keys[idx];if(sid==null)return;if(!confirm('이 수강생을 삭제할까요? 기존 성적 기록은 유지됩니다.'))return;const m=getStudents();delete m[sid];saveStudents(m);renderAdmin();};
+window.resetStuPw=function(idx){const keys=Object.keys(getStudents()).sort();const sid=keys[idx];if(sid==null)return;if(!confirm('암호를 초기화하면 학생이 다음 로그인 시 새 개인 암호를 다시 설정합니다. 진행할까요?'))return;const m=getStudents();m[sid].pw='';saveStudents(m);alert('암호가 초기화되었습니다.');renderAdmin();};
+window.setStuPw=function(idx){const keys=Object.keys(getStudents()).sort();const sid=keys[idx];if(sid==null)return;const p=prompt('지정할 개인 암호를 입력하세요 (4자 이상):');if(p==null)return;if(p.length<4){alert('암호는 4자 이상이어야 합니다.');return;}const m=getStudents();m[sid].pw=hashPw(p);saveStudents(m);alert('암호가 지정되었습니다.');renderAdmin();};
+window.toggleAllStu=function(cb){document.querySelectorAll('.stusel').forEach(b=>b.checked=cb.checked);};
+window.showSelectedReport=function(){
+  const boxes=Array.from(document.querySelectorAll('.stusel:checked'));
+  if(!boxes.length){alert('리포트를 만들 학생을 한 명 이상 선택하세요.');return;}
+  selectedStudentIdxs=boxes.map(b=>+b.value);
+  showInfographic('sel');
+};
+window.delResult=function(oi){
+  const results=loadResults();
+  if(oi<0||oi>=results.length)return;
+  if(!confirm('이 응시 기록을 삭제할까요? 휴지통에서 복구할 수 있습니다.'))return;
+  const rec=results.splice(oi,1)[0];
+  rec._del=new Date().toLocaleString('ko-KR');
+  const t=getTrash();t.push(rec);saveTrash(t);
+  saveResults(results);renderAdmin();
+};
+window.clearAllResults=function(){
+  const results=loadResults();
+  if(!results.length){alert('삭제할 기록이 없습니다.');return;}
+  if(!confirm('전체 응시 기록 '+results.length+'건을 모두 삭제할까요? 휴지통으로 이동하며 복구할 수 있습니다.'))return;
+  const t=getTrash();const now=new Date().toLocaleString('ko-KR');
+  results.forEach(r=>{r._del=now;t.push(r);});
+  saveTrash(t);saveResults([]);renderAdmin();
+};
+window.restoreResult=function(oi){
+  const t=getTrash();
+  if(oi<0||oi>=t.length)return;
+  const rec=t.splice(oi,1)[0];delete rec._del;
+  const results=loadResults();results.push(rec);saveResults(results);
+  saveTrash(t);renderAdmin();
+};
+window.restoreAll=function(){
+  const t=getTrash();if(!t.length){alert('복구할 기록이 없습니다.');return;}
+  const results=loadResults();
+  t.forEach(r=>{delete r._del;results.push(r);});
+  saveResults(results);saveTrash([]);renderAdmin();
+};
+window.purgeResult=function(oi){
+  const t=getTrash();if(oi<0||oi>=t.length)return;
+  if(!confirm('이 기록을 영구 삭제할까요? 복구할 수 없습니다.'))return;
+  t.splice(oi,1);saveTrash(t);renderAdmin();
+};
+window.emptyTrash=function(){
+  if(!getTrash().length){alert('휴지통이 비어 있습니다.');return;}
+  if(!confirm('휴지통을 비울까요? 모든 삭제 기록이 영구 삭제되어 복구할 수 없습니다.'))return;
+  saveTrash([]);renderAdmin();
+};
+window.delStudentData=function(idx){
+  const studs=adminStudents();const s=studs[idx];if(!s)return;
+  if(!confirm(s.name+' 학생의 성적·이용시간 기록을 삭제할까요? 학생 휴지통에서 복구할 수 있습니다.'))return;
+  const results=loadResults();const keep=[],removed=[];
+  results.forEach(r=>{if(((r.sid||'-')+'|'+(r.student||''))===s.key)removed.push(r);else keep.push(r);});
+  const store=getUsageStore();const usage=store[s.key]!=null?store[s.key]:null;
+  delete store[s.key];localStorage.setItem(LS_USAGE,JSON.stringify(store));
+  saveResults(keep);
+  const tr=getStuTrash();tr.push({key:s.key,name:s.name,sid:s.sid,results:removed,usage:usage,_del:new Date().toLocaleString('ko-KR')});saveStuTrash(tr);
+  if(student&&usageKey(student)===s.key)loginTime=Date.now();
+  renderAdmin();
+};
+window.restoreStudentData=function(oi){
+  const tr=getStuTrash();if(oi<0||oi>=tr.length)return;
+  const b=tr.splice(oi,1)[0];
+  const results=loadResults();(b.results||[]).forEach(r=>results.push(r));saveResults(results);
+  if(b.usage!=null){const store=getUsageStore();store[b.key]=b.usage;localStorage.setItem(LS_USAGE,JSON.stringify(store));}
+  saveStuTrash(tr);renderAdmin();
+};
+window.restoreAllStudentData=function(){
+  const tr=getStuTrash();if(!tr.length){alert('복구할 기록이 없습니다.');return;}
+  const results=loadResults();const store=getUsageStore();
+  tr.forEach(b=>{(b.results||[]).forEach(r=>results.push(r));if(b.usage!=null)store[b.key]=b.usage;});
+  saveResults(results);localStorage.setItem(LS_USAGE,JSON.stringify(store));
+  saveStuTrash([]);renderAdmin();
+};
+window.purgeStudentData=function(oi){
+  const tr=getStuTrash();if(oi<0||oi>=tr.length)return;
+  if(!confirm('이 학생 기록을 영구 삭제할까요? 복구할 수 없습니다.'))return;
+  tr.splice(oi,1);saveStuTrash(tr);renderAdmin();
+};
+window.emptyStuTrash=function(){
+  if(!getStuTrash().length){alert('삭제된 학생 기록이 없습니다.');return;}
+  if(!confirm('삭제된 학생 기록을 모두 영구 삭제할까요? 복구할 수 없습니다.'))return;
+  saveStuTrash([]);renderAdmin();
+};
+window.printTest=function(tid){
+  stopTimer();
+  const t=loadTests().find(x=>x.id===tid);
+  if(!t){alert('시험을 찾을 수 없습니다.');return;}
+  const qs=t.questions.map((q,i)=>{
+    const content=q.img?`<img class="qimg" src="${q.img}">`:`<div class="qtext">${esc(q.q||'')}</div>`;
+    let opts='';
+    if(q.type!=='short'&&q.opts){opts=`<div class="opts">${q.opts.map((o,j)=>`<div class="opt"><span class="mk">${nlabel(j)}</span><span>${esc(o)}</span></div>`).join('')}</div>`;}
+    else if(q.type!=='short'){const n=q.choices||5;opts=`<div class="ansgrid">${Array.from({length:n},(_,j)=>`<button class="ansbtn">${nlabel(j)}</button>`).join('')}</div>`;}
+    else{opts=`<div class="short-ans">단답 답안: ______________________________</div>`;}
+    const lim=(+q.limit||0)>0?` <span class="pill blue">제한 ${Math.floor(q.limit/60)}분 ${q.limit%60}초</span>`:'';
+    return `<div class="review-q"><div class="rq">문항 ${i+1}${lim}</div>${content}${opts}</div>`;
+  }).join('');
+  const key=t.questions.map((q,i)=>{const a=q.type==='short'?esc(q.ansText||''):nlabel(q.ans);return `<tr><td style="text-align:center">${i+1}</td><td>${a}</td><td>${esc(q.explain||'')}</td></tr>`;}).join('');
+  el.innerHTML=`<div class="card">
+    <div class="row no-print" style="margin-bottom:14px">
+      <button class="btn" onclick="window.print()">🖨️ PDF로 저장 / 인쇄</button>
+      <button class="btn ghost" onclick="adminTab='list';renderAdmin()">← 돌아가기</button>
+    </div>
+    <h2>${esc(t.title)}</h2>
+    <p class="sub">아신수학전문학원 온라인 테스트 · ${esc(t.subject)} · ${t.questions.length}문항 · ${t.minutes}분</p>
+    <div style="margin:6px 0 16px;font-size:13px;color:var(--muted)">이름: __________________ · 학생 번호: __________________</div>
+    ${qs}
+    <h2 style="margin-top:22px;page-break-before:always">✅ 정답 & 해설</h2>
+    <table><thead><tr><th>번호</th><th style="text-align:left">정답</th><th style="text-align:left">해설</th></tr></thead><tbody>${key}</tbody></table>
+  </div>`;
+};
 window.copyLink=function(tid){
   const link=buildLink(tid);
   navigator.clipboard&&navigator.clipboard.writeText(link).then(()=>alert('링크가 복사되었어요!\n'+link),()=>prompt('복사하세요:',link))||prompt('복사하세요:',link);
@@ -508,9 +839,9 @@ window.applyWhole=function(){assignCrop(wholeToDataURL());};
 window.closeCrop=function(){window.onmousemove=null;window.onmouseup=null;document.getElementById('cropRoot').innerHTML='';};
 
 /* ============ EDIT / CRUD (이미지 기반) ============ */
-function blankQ(){return{img:'',type:'choice',choices:5,ans:0,ansText:'',explain:'',explainImg:'',lecture:''};}
+function blankQ(){return{img:'',type:'choice',choices:5,ans:0,ansText:'',explain:'',explainImg:'',lecture:'',limit:0};}
 window.newTest=function(){editData={id:'t'+Date.now(),title:'',subject:'',minutes:10,questions:[blankQ()]};adminTab='edit';renderAdmin();};
-window.editTest=function(tid){editData=JSON.parse(JSON.stringify(loadTests().find(t=>t.id===tid)));editData.questions.forEach(q=>{if(q.explain==null)q.explain='';if(q.lecture==null)q.lecture='';if(q.explainImg==null)q.explainImg='';if(q.img==null)q.img='';if(q.ansText==null)q.ansText='';if(!q.type)q.type=q.opts?'choice':'choice';if(q.type==='choice'&&!q.choices&&!q.opts)q.choices=5;});adminTab='edit';renderAdmin();};
+window.editTest=function(tid){editData=JSON.parse(JSON.stringify(loadTests().find(t=>t.id===tid)));editData.questions.forEach(q=>{if(q.explain==null)q.explain='';if(q.lecture==null)q.lecture='';if(q.explainImg==null)q.explainImg='';if(q.img==null)q.img='';if(q.ansText==null)q.ansText='';if(q.limit==null)q.limit=0;if(!q.type)q.type=q.opts?'choice':'choice';if(q.type==='choice'&&!q.choices&&!q.opts)q.choices=5;});adminTab='edit';renderAdmin();};
 window.delTest=function(tid){if(!confirm('이 시험을 삭제하시겠습니까?'))return;saveTests(loadTests().filter(t=>t.id!==tid));renderAdmin();};
 function renderEdit(){
   if(!editData)return;
@@ -537,6 +868,7 @@ function renderEdit(){
       ${typeSeg}
       ${ansBox}
       <label>해설 (텍스트, 선택)</label><textarea rows="2" oninput="editData.questions[${i}].explain=this.value">${esc(q.explain||'')}</textarea>
+      <label>문항 제한시간 <span style="color:var(--muted);font-size:12px">(0분 0초 = 무제한)</span></label><div class="row" style="gap:8px;align-items:center"><input type="number" min="0" style="max-width:90px" value="${Math.floor((+q.limit||0)/60)}" oninput="setQLimit(${i},'m',this.value)"><span>분</span><input type="number" min="0" max="59" style="max-width:90px" value="${(+q.limit||0)%60}" oninput="setQLimit(${i},'s',this.value)"><span>초</span></div>
       <label>해설 이미지</label>${expImgBox}
       <label>강의 링크 (URL, 선택)</label><input placeholder="https://..." value="${esc(q.lecture||'')}" oninput="editData.questions[${i}].lecture=this.value">
     </div>`;
@@ -553,6 +885,13 @@ function renderEdit(){
   </div>`;
 }
 window.addQ=function(){editData.questions.push(blankQ());renderEdit();};
+window.setQLimit=function(i,unit,val){
+  const q=editData.questions[i];const cur=+q.limit||0;
+  let m=Math.floor(cur/60),s=cur%60;
+  const v=Math.max(0,parseInt(val,10)||0);
+  if(unit==='m')m=v;else s=Math.min(59,v);
+  q.limit=m*60+s;
+};
 window.rmQ=function(i){if(editData.questions.length<=1){alert('최소 1문항 필요');return;}editData.questions.splice(i,1);renderEdit();};
 window.saveEdit=function(){
   const t=editData; t.title=(t.title||'').trim(); t.subject=(t.subject||'').trim();
@@ -568,10 +907,119 @@ window.saveEdit=function(){
   adminTab='list'; renderAdmin();
 };
 
+/* ============ INFOGRAPHIC (PDF) ============ */
+function infoBar(label,val,color){
+  const w=Math.max(2,Math.min(100,val));
+  return `<div class="brow"><span class="bl">${esc(label)}</span><div class="bt"><div class="bf" style="width:${w}%;background:${color}">${val}점</div></div></div>`;
+}
+function studentBlock(s){
+  const rs=s.rs.slice();
+  const entry=usageEntry(s.key);
+  const live=(student&&usageKey(student)===s.key)?sessionElapsed():0;
+  const cum=entry.sec+live;
+  const scores=rs.map(r=>r.score);
+  const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  const best=scores.length?Math.max(...scores):0, worst=scores.length?Math.min(...scores):0;
+  const byTest={};rs.forEach(r=>{byTest[r.testId]=r;});
+  const bars=Object.keys(byTest).map(tid=>{const r=byTest[tid];const st=statsFor(tid);return `<div class="grouphd">${esc(r.testTitle)}</div><div class="bc">${infoBar('학생 점수',r.score,'var(--brand)')}${infoBar('학급 평균',st.avg,'var(--warn)')}</div>`;}).join('');
+  const examRows=rs.slice().reverse().map(r=>`<tr><td>${esc(r.testTitle)}</td><td style="text-align:center"><b style="color:${r.score>=70?'var(--ok)':'var(--bad)'}">${r.score}점</b></td><td style="text-align:center">${r.correct}/${r.total}</td><td style="text-align:center">${fmtTime(r.timeUsed||0)}</td><td style="font-size:12px">${esc(r.date)}</td></tr>`).join('');
+  const logRows=entry.log.slice().reverse().map(l=>`<tr><td style="font-size:12px">${esc(l.d)}</td><td style="text-align:right">${fmtDur(l.sec)}</td></tr>`).join('');
+  const liveRow=live?`<tr><td style="font-size:12px;color:var(--brand)">현재 접속 세션</td><td style="text-align:right;color:var(--brand)">${fmtDur(live)}</td></tr>`:'';
+  return `<div style="border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:14px;margin:14px 0;background:rgba(0,0,0,.015)">
+    <div class="grouphd" style="font-size:16px;margin-top:0">👤 ${esc(s.name)} <span style="color:var(--muted);font-weight:400">(${esc(s.sid)})</span></div>
+    <div class="kpis">
+      <div class="kpi"><b>${avg}</b><small>평균</small></div>
+      <div class="kpi"><b>${best}</b><small>최고</small></div>
+      <div class="kpi"><b>${worst}</b><small>최저</small></div>
+      <div class="kpi"><b>${rs.length}</b><small>응시 횟수</small></div>
+      <div class="kpi"><b style="font-size:15px">${fmtDur(cum)}</b><small>누적 이용시간</small></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:6px 0 4px">최초 사용: ${esc(entry.first||'-')} · 최근 사용: ${esc(entry.last||'-')}${live?' · <b style="color:var(--brand)">현재 접속 중</b>':''}</div>
+    ${bars?`<div class="sectitle">📈 시험별 점수 vs 학급 평균</div>${bars}`:''}
+    ${rs.length?`<div class="sectitle">📅 응시 이력</div><table><thead><tr><th style="text-align:left">시험</th><th>점수</th><th>정답률</th><th>소요</th><th style="text-align:left">응시일시</th></tr></thead><tbody>${examRows}</tbody></table>`:''}
+    <div class="sectitle">⏱ 이용시간 상세 (세션별 사용일시)</div>
+    ${(logRows||liveRow)?`<table><thead><tr><th style="text-align:left">사용일시</th><th style="text-align:right">이용시간</th></tr></thead><tbody>${liveRow}${logRows}</tbody></table>`:'<div style="font-size:13px;color:var(--muted)">기록된 세션 이용시간이 없습니다.</div>'}
+  </div>`;
+}
+window.showInfographic=function(scope,arg){
+  stopTimer();
+  const all=loadResults();
+  const now=new Date().toLocaleString('ko-KR');
+  let title, kpis, charts;
+  if(scope==='me'){
+    const mine=all.filter(r=>r.sid===student.id&&r.student===student.name);
+    if(!mine.length){alert('응시 기록이 없어요.');return;}
+    const avg=Math.round(mine.reduce((a,b)=>a+b.score,0)/mine.length);
+    const best=Math.max(...mine.map(r=>r.score)), worst=Math.min(...mine.map(r=>r.score));
+    title=`${esc(student.name)} 님 성적 리포트`;
+    kpis=`<div class="kpis">
+      <div class="kpi"><b>${avg}</b><small>내 평균</small></div>
+      <div class="kpi"><b>${best}</b><small>최고점</small></div>
+      <div class="kpi"><b>${worst}</b><small>최저점</small></div>
+      <div class="kpi"><b>${mine.length}</b><small>응시 횟수</small></div>
+    </div>`;
+    const byTest={};mine.forEach(r=>{byTest[r.testId]=r;});
+    const groups=Object.keys(byTest).map(tid=>{const r=byTest[tid];const st=statsFor(tid);
+      return `<div class="grouphd">${esc(r.testTitle)}</div><div class="bc">${infoBar('내 점수',r.score,'var(--brand)')}${infoBar('학급 평균',st.avg,'var(--warn)')}</div>`;}).join('');
+    const usageBlock=`<div class="sectitle">⏱ 학습 이용시간</div><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div class="kpi"><b style="font-size:20px" id="sessClock">${fmtDur(sessionElapsed())}</b><small>본 세션 이용시간</small></div><div class="kpi"><b style="font-size:20px" id="cumClock">${fmtDur(cumulativeUsage(student))}</b><small>누적 이용시간</small></div></div>`;
+    charts=`${usageBlock}<div class="sectitle">📈 시험별 내 점수 vs 학급 평균</div>${groups}`;
+  }else if(scope==='stu'){
+    const studs=adminStudents();
+    const s=studs[arg];
+    if(!s){alert('학생을 찾을 수 없어요.');return;}
+    title=`${esc(s.name)} 개인 리포트`;
+    kpis='';
+    charts=studentBlock(s);
+  }else if(scope==='sel'){
+    const studs=adminStudents();
+    const sel=selectedStudentIdxs.map(i=>studs[i]).filter(Boolean);
+    if(!sel.length){alert('선택된 학생이 없어요.');return;}
+    title='선택 학생 성적 · 이용시간 리포트';
+    const allScores=[];sel.forEach(s=>s.rs.forEach(r=>allScores.push(r.score)));
+    const avg=allScores.length?Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length):0;
+    let totalSec=0;sel.forEach(s=>{const e=usageEntry(s.key);totalSec+=e.sec+((student&&usageKey(student)===s.key)?sessionElapsed():0);});
+    kpis=`<div class="kpis">
+      <div class="kpi"><b>${sel.length}</b><small>선택 학생</small></div>
+      <div class="kpi"><b>${allScores.length}</b><small>총 응시</small></div>
+      <div class="kpi"><b>${avg}</b><small>평균</small></div>
+      <div class="kpi"><b style="font-size:15px">${fmtDur(totalSec)}</b><small>누적시간</small></div>
+    </div>`;
+    charts=`<div class="sectitle">👥 선택 학생 개인별 리포트</div>${sel.map(studentBlock).join('')}`;
+  }else{
+    const studs=adminStudents();
+    if(!studs.length){alert('응시 또는 이용 기록이 없어요.');return;}
+    title='전체 성적 · 개인별 리포트';
+    const scored=all.length;
+    const avg=scored?Math.round(all.reduce((a,b)=>a+b.score,0)/all.length):0;
+    let totalSec=0;studs.forEach(s=>{const e=usageEntry(s.key);totalSec+=e.sec+((student&&usageKey(student)===s.key)?sessionElapsed():0);});
+    kpis=`<div class="kpis">
+      <div class="kpi"><b>${studs.length}</b><small>학생 수</small></div>
+      <div class="kpi"><b>${scored}</b><small>총 응시</small></div>
+      <div class="kpi"><b>${avg}</b><small>전체 평균</small></div>
+      <div class="kpi"><b style="font-size:15px">${fmtDur(totalSec)}</b><small>총 누적시간</small></div>
+    </div>`;
+    charts=`<div class="sectitle">👥 개인별 성적 · 이용시간 리포트</div>${studs.map(studentBlock).join('')}`;
+  }
+  el.innerHTML=`<div class="card">
+    <div class="reptop">
+      <div><h2>${title}</h2><div class="rd">아신수학전문학원 온라인 테스트</div></div>
+      <div class="rd" style="text-align:right">생성: ${now}${scope==='me'?'<br>⏱ 이용시간 '+fmtDur(sessionElapsed()):''}</div>
+    </div>
+    ${kpis}
+    ${charts}
+    <div class="row no-print" style="margin-top:22px">
+      <button class="btn" onclick="window.print()">🖨️ PDF로 저장 / 인쇄</button>
+      <button class="btn ghost" onclick="${scope==='me'?'viewMyResults()':'renderAdmin()'}">← 돌아가기</button>
+    </div>
+  </div>`;
+};
+
 /* ============ INIT ============ */
 (function init(){
   const tid=getParam('test');
   if(tid&&loadTests().find(t=>t.id===tid)){entryTestId=tid;}
+  setInterval(()=>{const e=document.getElementById('sessClock');if(e&&loginTime)e.textContent=fmtDur(sessionElapsed());const c=document.getElementById('cumClock');if(c&&student)c.textContent=fmtDur(cumulativeUsage(student));},1000);
+  window.addEventListener('beforeunload',commitUsage);
   window.addEventListener('hashchange',()=>{
     const t=getParam('test');
     if(t&&loadTests().find(x=>x.id===t)&&!student){entryTestId=t;viewLogin();}
