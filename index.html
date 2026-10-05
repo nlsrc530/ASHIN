@@ -284,7 +284,7 @@ body:not(.role-student) .student-only{display:none !important}
 
   <div id="screenAdmin" class="screen" style="display:none">
     <div class="card">
-      <div class="toprow"><b>👥 학생 관리</b><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="ghost" id="admCloudLoginBtn">☁️ 클라우드 관리자 로그인</button><button class="ghost" id="admChangePinBtn">🔑 관리자 암호 변경</button><button class="ghost" id="admBackBtn">🏠 라이브러리</button></div></div>
+      <div class="toprow"><b>👥 학생 관리</b><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="ghost" id="admCloudLoginBtn">☁️ 클라우드 관리자 로그인</button><button class="ghost" id="admGeminiKeyBtn" title="학생들이 사진 분석 시 API 키를 매번 입력하지 않도록, 관리자 Gemini 키를 클라우드에 1번만 등록합니다.">🤖 Gemini 키 공유</button><button class="ghost" id="admChangePinBtn">🔑 관리자 암호 변경</button><button class="ghost" id="admBackBtn">🏠 라이브러리</button></div></div>
       <div id="cloudStatus" class="small" style="margin:2px 0 8px;padding:6px 10px;border-radius:8px;background:var(--hi);display:inline-block"></div>
       <p class="small">학생에게 학생번호를 발급하면, 학생은 그 번호와 비밀번호로 로그인해 인증합니다. 학습 진행·테스트 성적(받아쓰기·단어·이해 테스트)을 인포그래픽으로 한눈에 보고, 학생별 성적표를 PDF로 출력할 수 있습니다. 아래 표에서 학생을 체크한 뒤 “선택 학생 성적표 PDF”를 누르면 여러 명의 성적표를 한 번에 뽑을 수 있습니다.</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="admPdfSelBtn" class="primary">🖨 선택 학생 성적표 PDF</button><button id="admRefreshBtn" class="ghost">↻ 새로고침</button><button id="admImportBtn" class="ghost" title="다른 기기에서 만든 학생 결과 백업 파일(.json)을 이 기기로 합칠 때만 사용합니다(선택 기능).">📥 결과 파일 병합(선택)</button><input type="file" id="admImportFile" accept="application/json,.json" style="display:none"></div>
@@ -616,6 +616,7 @@ const CLOUD = {
   lessonsCol: "reading_lessons",
   studentsCol: "reading_students",
   audioCol:   "reading_audio",
+  settingsCol:"reading_settings",
   chunkSize:  700000
 };
 let _fs=null, _cloudOn=false, _auth=null, _authReady=null, _isAdminUser=false, _lastAuthErr='', _lastDbErr='';
@@ -755,6 +756,19 @@ async function cloudGetAllStudents(){ const snap=await _fs.collection(CLOUD.stud
 async function cloudGetStudent(id){ const d=await _fs.collection(CLOUD.studentsCol).doc(String(id)).get(); return d.exists?fsDecode(d.data()):undefined; }
 async function cloudPutStudent(s){ await _fs.collection(CLOUD.studentsCol).doc(String(s.id)).set(fsEncode(JSON.parse(JSON.stringify(s)))); }
 async function cloudDeleteStudent(id){ await _fs.collection(CLOUD.studentsCol).doc(String(id)).delete(); }
+/* ---- 공유 Gemini 키: 관리자가 클라우드에 1번만 저장 → 모든 학생 기기가 자동으로 받아 사용 ----
+   (중요) 키는 공개 GitHub HTML이 아니라, 학원 전용 Firestore(학생 자료가 들어있는 그 저장소)에만 보관한다.
+   따라서 소스 보기로 아무나 키를 가져가는 일은 없고, 교체/폐기도 콘솔에서 바로 가능하다. */
+async function cloudGetSharedGeminiKey(){
+  if(!_cloudOn) return null;
+  try{ await cloudAuthWait(); const d=await _fs.collection(CLOUD.settingsCol).doc('shared').get(); if(d.exists){ const k=(d.data()&&d.data().geminiKey)||''; return (k||'').trim()||null; } }catch(e){ console.warn('shared key read fail', e); }
+  return null;
+}
+async function cloudSetSharedGeminiKey(key){
+  if(!_cloudOn) throw new Error('no-cloud');
+  await cloudAuthWait();
+  await _fs.collection(CLOUD.settingsCol).doc('shared').set({geminiKey:(key||'').trim(), updatedAt:Date.now()}, {merge:true});
+}
 
 function dbOpen(){ return new Promise((res,rej)=>{ const req=indexedDB.open(DB_NAME,2); req.onupgradeneeded=()=>{ const db=req.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'}); if(!db.objectStoreNames.contains(ST_STORE)) db.createObjectStore(ST_STORE,{keyPath:'id'}); }; req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
 async function idbGetAll(){ const db=await dbOpen(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,'readonly'); const req=tx.objectStore(STORE).getAll(); req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
@@ -1031,7 +1045,9 @@ document.getElementById('myEngGoBtn').onclick=async ()=>{
   if(!myEngFiles.length){ return; }
   const st=document.getElementById('myEngStatus');
   const goBtn=document.getElementById('myEngGoBtn'); goBtn.disabled=true;
-  if(!ensureGeminiKey()){ goBtn.disabled=false; return; }
+  st.textContent='준비 중... 키 확인 중 🔑';
+  const _gk=await getGeminiKeyAuto();
+  if(!_gk){ st.textContent=''; goBtn.disabled=false; return; }
   let sentences=[], vocab=[], titleFromAI='';
   for(let fi=0; fi<myEngFiles.length; fi++){
     st.textContent='사진 '+(fi+1)+'/'+myEngFiles.length+' 분석 중... (글자 읽는 중) 🤖';
@@ -1456,6 +1472,26 @@ function ensureGeminiKey(){
     if(key) localStorage.setItem('gemini_key',key);
   }
   return key;
+}
+/* 클라우드에 공유된 Gemini 키를 자동으로 받아와 이 기기에 캐시한다.
+   - 관리자가 한 번만 등록하면, 학생은 키를 입력할 필요가 없다.
+   - 클라우드 키가 없거나 로컬 모드이면 예전처럼 직접 입력(ensureGeminiKey)으로 되돌아간다. */
+async function cloudAutoLoadGeminiKey(){
+  try{
+    if(!_cloudOn) return;
+    const shared=await cloudGetSharedGeminiKey();
+    if(shared){ localStorage.setItem('gemini_key', shared); _geminiModelsCache=null; }
+  }catch(e){ /* 실패해도 무시: 필요 시 ensureGeminiKey가 처리 */ }
+}
+/* 사용 직전 키 확보: 로컬 캐시 → 클라우드 공유 키 → (최후) 직접 입력 */
+async function getGeminiKeyAuto(){
+  let key=(localStorage.getItem('gemini_key')||'').trim();
+  if(key) return key;
+  if(_cloudOn){
+    const shared=await cloudGetSharedGeminiKey();
+    if(shared){ localStorage.setItem('gemini_key', shared); _geminiModelsCache=null; return shared; }
+  }
+  return ensureGeminiKey();
 }
 // 키로 실제 사용 가능한 모델을 계정에서 직접 조회해 사용(모델명 세대교체로 인한 404 방지)
 let _geminiModelsCache=null;
@@ -2161,6 +2197,42 @@ document.getElementById('admCloudLoginBtn').onclick=async()=>{
   await ensureAdminCloudAuth();
   const cs=document.getElementById('cloudStatus'); if(cs) cs.textContent=cloudStatusText();
 };
+document.getElementById('admGeminiKeyBtn').onclick=async()=>{
+  if(!(_cloudOn && CLOUD.adminEmail)){
+    alert('현재 로컬(기기 전용) 모드라 클라우드 키 공유가 필요 없어요.\n이 기기에서는 사진 분석 시 한 번만 키를 입력하면 브라우저에 저장됩니다.');
+    return;
+  }
+  await cloudAuthWait();
+  if(!_isAdminUser){ alert('먼저 “☁️ 클라우드 관리자 로그인”으로 로그인한 뒤에 키를 등록할 수 있어요.'); return; }
+  let cur=''; try{ cur=await cloudGetSharedGeminiKey()||''; }catch(e){}
+  const masked=cur ? (cur.slice(0,6)+'…'+cur.slice(-4)) : '(아직 없음)';
+  const inp=prompt('학생 공용 Gemini API 키를 입력하세요. (Google AI Studio → aistudio.google.com/apikey 에서 무료 발급)\n• 한 번 등록하면 모든 학생 기기가 자동으로 받아 쓰고, 학생은 다시 입력할 필요가 없어요.\n• 비워서 확인을 누르면 공용 키가 삭제됩니다.\n\n현재 등록된 키: '+masked, cur);
+  if(inp===null) return;
+  const nk=(inp||'').trim();
+  try{
+    await cloudSetSharedGeminiKey(nk);
+    if(nk){ localStorage.setItem('gemini_key', nk); _geminiModelsCache=null; showTip('공용 Gemini 키를 클라우드에 저장했어요. 이제 학생은 키 입력 없이 바로 사진 분석을 쓸 수 있어요.'); }
+    else{ localStorage.removeItem('gemini_key'); _geminiModelsCache=null; showTip('공용 Gemini 키를 삭제했어요.'); }
+  }catch(e){
+    const code=(e&&e.code)||(e&&e.message)||'';
+    /* 공용 Gemini 키는 reading_settings 컬렉션(doc 'shared')에 저장된다.
+       이 컬렉션이 Firestore 보안 규칙의 쓰기 허용 목록(allow-list)에 빠져 있으면,
+       관리자 인증이 되어 있어도 permission-denied가 난다. (자료/학생용 컬렉션만
+       허용하고 reading_settings는 빠뜨린 경우) 원인을 정확히 안내한다. */
+    if(code==='permission-denied'){
+      if(nk){ localStorage.setItem('gemini_key', nk); _geminiModelsCache=null; }
+      else { localStorage.removeItem('gemini_key'); _geminiModelsCache=null; }
+      alert('공용 키를 클라우드에 저장하지 못했어요 (permission-denied).\n\n'+
+            '관리자 인증은 되어 있지만, Firestore 보안 규칙에 “reading_settings”\n'+
+            '컬렉션의 쓰기 권한이 빠져 있어서 그렇습니다.\n\n'+
+            'Firebase 콘솔 → Firestore Database → 규칙(Rules) 에서\n'+
+            'reading_settings 컬렉션(읽기: 로그인 사용자 / 쓰기: 관리자)을 추가하면 해결됩니다.\n\n'+
+            '※ 규칙을 추가하기 전까지는 이 기기에만 키가 저장되어 사용됩니다.');
+    } else {
+      alert('키 저장에 실패했어요.\n'+authErrMsg(code));
+    }
+  }
+};
 document.getElementById('admChangePinBtn').onclick=async()=>{
   if(_cloudOn && CLOUD.adminEmail){
     await cloudAuthWait();
@@ -2709,6 +2781,7 @@ document.getElementById('importFile').onchange=(e)=>{
   cloudInit();
   applyAppTitle();
   await seedIfEmpty();
+  await cloudAutoLoadGeminiKey();
   await restoreActiveStudent();
   let role=getRole();
   if(role==='admin'){
